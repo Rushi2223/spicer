@@ -8,26 +8,24 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Authentication routes
 app.use("/api/auth", authRoutes);
 
-// Test route
 app.get("/", (req, res) => {
   res.send("Spicer Backend is Running");
 });
 
-// MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("MongoDB Connected");
 
-    app.listen(5000, () => {
-      console.log("Server running on http://localhost:5000");
+    const PORT = process.env.PORT || 5000;
+
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
     });
   })
   .catch((error) => {
