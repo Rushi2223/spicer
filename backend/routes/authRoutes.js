@@ -1,35 +1,99 @@
 import express from "express";
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import cors from "cors";
-import authRoutes from "./routes/authRoutes.js";
+import bcrypt from "bcryptjs";
+import User from "../models/User.js";
 
-dotenv.config();
+const router = express.Router();
 
-const app = express();
+// REGISTER
+router.post("/register", async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        message: "All fields are required"
+      });
+    }
 
-// Routes
-app.use("/api/auth", authRoutes);
+    const existingUser = await User.findOne({
+      $or: [{ username }, { email }]
+    });
 
-// Test route
-app.get("/", (req, res) => {
-  res.send("Spicer Backend is Running");
+    if (existingUser) {
+      return res.status(400).json({
+        message: "Username or email already exists"
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      username,
+      email,
+      password: hashedPassword
+    });
+
+    await newUser.save();
+
+    res.status(201).json({
+      message: "Registration successful"
+    });
+
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).json({
+      message: "Server error"
+    });
+  }
 });
 
-// MongoDB Connection
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB Connected");
+// LOGIN
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-    app.listen(5000, () => {
-      console.log("Server running on http://localhost:5000");
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required"
+      });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid email or password"
+      });
+    }
+
+    const isPasswordCorrect = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        message: "Invalid email or password"
+      });
+    }
+
+    res.status(200).json({
+      message: "Login successful",
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email
+      }
     });
-  })
-  .catch((error) => {
-    console.log("MongoDB Connection Error:", error.message);
-  });
+
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).json({
+      message: "Server error"
+    });
+  }
+});
+
+export default router;
